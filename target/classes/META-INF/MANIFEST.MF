@@ -1,0 +1,11 @@
+Manifest-Version: 1.0
+Implementation-Title: document-project
+Implementation-Version: 0.0.1-SNAPSHOT
+Built-By: liruyin
+Implementation-Vendor-Id: cn.uway.document
+Build-Jdk: 1.8.0_05
+Implementation-URL: http://projects.spring.io/spring-boot/document-pro
+ ject/
+Created-By: Maven Integration for Eclipse
+Implementation-Vendor: Pivotal Software, Inc.
+
