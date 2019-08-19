@@ -2,7 +2,6 @@ package com.uway.domcv.entities;
 
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 /**
  * 前端参数实体封装
@@ -44,5 +43,7 @@ public class ParserParm implements java.io.Serializable{
      */
     public  Integer startDatatype;
     
+   /*表空间的名称*/
+    public String tablespaceName;
 
 }

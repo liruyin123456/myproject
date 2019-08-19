@@ -15,7 +15,13 @@ import java.util.Iterator;
 public class Dom4JTest {
     public static void main(String[] args) {
         // 调用dom4j生成xml方法
-        createDom4j(new File("E:\\dom4j.xml"));
+//        createDom4j(new File("E:\\dom4j.xml"));
+    	int a = 031;
+    	int b = 0x32;
+    	int c = 0b111;
+    	System.out.println("a  :"+a);
+    	System.out.println("b  :"+b);
+    	System.out.println("c  :"+c);
     }
     public static void createDom4j(File file){
         try{

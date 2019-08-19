@@ -1,24 +1,48 @@
 package com.uway.domcv.controller;
 
 
-import com.uway.domcv.entities.ColumnInfo;
-import com.uway.domcv.entities.ParserParm;
-import org.apache.poi.ss.usermodel.*;
-import org.dom4j.*;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.dom4j.Attribute;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.DocumentHelper;
+import org.dom4j.Element;
+import org.dom4j.Node;
 import org.dom4j.io.OutputFormat;
 import org.dom4j.io.SAXReader;
 import org.dom4j.io.XMLWriter;
-import org.dom4j.tree.DefaultElement;
 import org.junit.Test;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.io.*;
-import java.sql.Time;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import com.uway.domcv.entities.ColumnInfo;
+import com.uway.domcv.entities.ParserParm;
 
 
 /**
@@ -39,28 +63,40 @@ public class DomConversion {
     /**
      * 保存该表的其它信息
      */
-    private static HashMap<String, ArrayList<String>> ColumnTypeInfo=new HashMap<String,ArrayList<String>>();
+    private static HashMap<String, ArrayList<String>> ColumnTypeInfo = new HashMap<String,ArrayList<String>>();
 
     public static void main(String[] args) {
         ParserParm parserParm =ParserParm.builder().build();
         //parserParm.setInputPath("F:/LTE中兴参数采集需求_V2.0_20190605.xlsx");
-        parserParm.setInputPath("C:/Users/liruyin/Desktop/LTE中兴参数采集需求_V2.0_20190606.xlsx");
-        parserParm.setStartRowNum(8931);
-        parserParm.setEndRowNum(9415);
+//        parserParm.setInputPath("C:/Users/liruyin/Desktop/NR爱立信性能采集需求_V1.1_20190731.xls");
+        parserParm.setInputPath("D:/SVNwarehouse/svnDoc/2.1 数据支撑/2.1.3 CDMA网/2.1.3.1 性能数据/华为/设计文档/2 采集设计/"
+        		+ "华为厂家性能采集需求表2019-8-1.xlsx");
+        //不包头
+        parserParm.setStartRowNum(7385);
+        //包尾
+        parserParm.setEndRowNum(7741);
         //parserParm.setStartRowNum(9415);
       	//parserParm.setEndRowNum(10357);
-        parserParm.setReadColumns(new int[]{5,7,9,10,11,37});
+        parserParm.setSheetName("性能采集需求表_文件型");
+        //下标0开始					表名、字段名 、类型、主键、是否允许为空、注释、厂家源字段
+        parserParm.setReadColumns(new int[]{11,12,13,7,8,10,4});
+        if(null == parserParm.getTablespaceName()){
+        	parserParm.setTablespaceName("IGP");
+        }
         readExcel(parserParm);
+        System.out.println(allTableInfo);
         try {
-            outDataAlterTable();
-           // outDataCreateTable();
+            //outDataAlterTable();
+            outDataCreateTable(parserParm);
             System.out.println(allTableInfo.size());
         } catch (IOException e) {
             e.printStackTrace();
         }
         //readExcel(parserParm);
-        //parserXmlDom();
+        //parserXmlDom(parserParm);
+        //parserXmlDomForParse(parserParm);
         //parseDom4j(new File("c:/Users/liruyin/Desktop/江苏电信-增加 GRID_ID_20，GRID_ID_100 两个字段/lte_mreo_xml_export.xml"));
+        //parseDom4j(new File("C:/Users/liruyin/Desktop/dianxin_cdma_hw_pm_xml_export.xml"));
     }
 
     private static void outDataAlterTable() throws IOException {
@@ -99,7 +135,8 @@ public class DomConversion {
         //往表里面添加字段
     }
 
-    private static void outDataCreateTable() throws IOException {
+    
+    private static void outDataCreateTable(ParserParm parserParm) throws IOException {
         OutputStreamWriter osw=new OutputStreamWriter(new FileOutputStream("E:/outAdd.sql") );
         //根据表名和字段生成sql
         for (Map.Entry<String, ArrayList<ColumnInfo>> tableInfo : allTableInfo.entrySet()) {
@@ -109,9 +146,17 @@ public class DomConversion {
             //注释sql
             StringBuffer commentSql =new StringBuffer("");
             //索引sql
-            StringBuffer unSql=new StringBuffer("create unique index UN_"+tableInfo.getKey()+"_N1 on "+tableInfo.getKey()+" (");
+            String unName ="";
+            if(tableInfo.getKey().length()>24){
+            	unName =tableInfo.getKey().substring(0, 24);
+            }else{
+            	unName =tableInfo.getKey();
+            }
+            StringBuffer unSql=new StringBuffer("create unique index UN_"+unName+"_N1 on "+tableInfo.getKey()+" (");
             for (ColumnInfo columnInfo : tableclumns) {
-            	if(StringUtils.isEmpty(columnInfo.getColumnName())) continue;
+            	if(StringUtils.isEmpty(columnInfo.getColumnName())){
+            		continue;
+            	}
                 sql.append(columnInfo.getColumnName()+"\t")
                         .append(columnInfo.getColumnType())
                         .append(columnInfo.isAllowNull()?" ":" NOT NULL")
@@ -121,7 +166,8 @@ public class DomConversion {
                 if(!StringUtils.isEmpty(columnInfo.getComment())){
                 	commentSql.append("COMMENT ON column ")
                 		.append(columnInfo.getTableName())
-                		.append(".").append(columnInfo.getColumnName())
+                		.append(".").append(
+                				columnInfo.getColumnName())
                 		.append(" IS \'").append(columnInfo.getComment())
                 		.append("\';\t\n");
                 }
@@ -138,7 +184,7 @@ public class DomConversion {
             .append("partition by range (STAMPTIME)"+
             "("+
   "partition PART_2022012123 values less than (TO_DATE(' 2022-01-21 23:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))\n"+
-    "tablespace UWAY_DATA\n"+
+    "tablespace  " + parserParm.getTablespaceName()+"\n"+
     "pctfree 10 \n"+
     "initrans 1 \n"+
     "maxtrans 255 \n"+
@@ -147,15 +193,16 @@ public class DomConversion {
       "initial 8M \n"+
       "next 1M \n"+
       "minextents 1 \n"+
-      "maxextents unlimited\n"+
+      "maxextents unlimited \n"+
     ")"+
 ");\n");
        //unsql后处理
        unSql.replace(unSql.length()-1,unSql.length()," ");
-       unSql.append(")").append("tablespace UWAY_DATA \n").append("pctfree 10 \n")
+       
+       unSql.append(")").append("tablespace  "+parserParm.getTablespaceName()+" \n").append("pctfree 10 \n")
        .append("initrans 2 \t").append("maxtrans 255  storage  \n")
        .append("(  initial 80K \n").append("next 1M \n").append("minextents 1 \n").
-       append("maxextents unlimited );");
+       append("maxextents unlimited );\n");
             System.out.println(sql.toString());
             System.out.println(commentSql.toString());
             
@@ -183,6 +230,93 @@ public class DomConversion {
 
         return  "success";
     }
+    
+    /**
+     * /excel/export
+     * @return
+     */
+    @ResponseBody
+    @RequestMapping("/excel/export")
+    public static String parserXmlDomForParse(ParserParm parserParm ){
+        System.out.println("_____________________-"+parserParm);
+        //createDom4j(new File("E:/tempParser.xml"));
+        File file =new File("E:/tempParser.xml");
+        try{
+            // 创建Document
+            Document document = DocumentHelper.createDocument();
+
+            // 添加根节点
+            Element root = document.addElement("templets");
+
+            if(allTableInfo.isEmpty()){
+                return "无法生成文件";
+            };
+            int id=1;
+            int dataType=4001;
+            int idOfferSet=0;
+            Iterator<String> keyIterator = allTableInfo.keySet().iterator();
+            while (keyIterator.hasNext()){
+
+                String tableName= keyIterator.next();
+
+                Element exportElement= root.addElement("templet").
+                        addAttribute("id",String.valueOf(id+idOfferSet))
+                        .addAttribute("elementType", tableName).
+                                addAttribute("dataType",String.valueOf(dataType+idOfferSet));
+                //xportElement.addElement("table").addAttribute("value",tableName);
+
+                Element columnsElement=exportElement.addElement("fields");
+
+                ArrayList<ColumnInfo> tableColumns = allTableInfo.get(tableName);
+                Iterator<ColumnInfo> columnIterator = tableColumns.iterator();
+                while (columnIterator.hasNext()){
+                	ColumnInfo next = columnIterator.next();
+                    String columnName = next.getColumnName();
+                    String sourceColumn = next.getSourceField();
+                    columnsElement.addElement("field").
+                            addAttribute("name",sourceColumn).
+                            addAttribute("index",columnName.toUpperCase());
+                }
+                idOfferSet++;
+
+            }
+            // 在根节点下添加第一个子节点
+          /*  Element oneChildElement= root.addElement("person").
+                    addAttribute("attr", "root noe")
+                    .addAttribute("","");
+
+            oneChildElement.addElement("people")
+                    .addAttribute("attr", "child one")
+                    .addText("person one child one");
+            oneChildElement.addElement("people")
+                    .addAttribute("attr", "child two")
+                    .addText("person one child two");
+
+            // 在根节点下添加第一个子节点
+            Element twoChildElement= root.addElement("person").addAttribute("attr", "root two");
+
+            twoChildElement.addElement("people")
+                    .addAttribute("attr", "child one")
+                    .addText("person two child one");
+            twoChildElement.addElement("people")
+                    .addAttribute("attr", "child two")
+                    .addText("person two child two");*/
+
+            OutputFormat format = OutputFormat.createPrettyPrint();
+            XMLWriter writer = new XMLWriter( new FileOutputStream(file), format);
+            writer.write(document);
+
+            System.out.println("dom4j CreateDom4j success!");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return  "success";
+    }
 
     public static void readExcel(ParserParm parserParm) {
 
@@ -199,9 +333,10 @@ public class DomConversion {
             // Sheet workbookSheet = workbook.getSheet("Sheet1");
 
             Iterator<Sheet> sheets = workbook.sheetIterator();
+            Sheet sheet = workbook.getSheet(parserParm.getSheetName());
             //迭代遍历sheet
-            while (sheets.hasNext()) {
-                Sheet sheet = sheets.next();
+           // while (sheets.hasNext()) {
+                //Sheet sheet = sheets.next();
 
                 Iterator<Row> rows = sheet.rowIterator();
                 //迭代遍历每行
@@ -215,15 +350,17 @@ public class DomConversion {
                     if(row.getRowNum()<parserParm.getStartRowNum() ||row.getRowNum()>parserParm.getEndRowNum()){
                         continue;
                     }
-                    String currentTableName="";//当前的表名
+                    //当前的表名
+                    String currentTableName="";
                     boolean isAdd =false;
                     int[] readColumns=parserParm.getReadColumns();
-                    ColumnInfo columnInfo=new ColumnInfo();//记录没行的字段信息
+                    //记录没行的字段信息
+                    ColumnInfo columnInfo=new ColumnInfo();
                     for (int i = 0; i <readColumns.length ; i++) {
 
                         Cell cell = row.getCell(readColumns[i]);
 
-                        if(cell==null||"".equals(cell.getStringCellValue())){
+                        if(cell==null){
                             continue;
                         }
                         Object cellValue = null;
@@ -232,49 +369,69 @@ public class DomConversion {
                         switch (cellType) {
                             case STRING:
                                 cellValue = cell.getStringCellValue();
+                                
+                                if("".equals(cellValue)) {
+                                	continue;
+                                }
+                                
                                 break;
                             case NUMERIC:
                                 cellValue = cell.getNumericCellValue();
                                 break;
                             case BLANK:
-                                cellValue = "空白单元格";
+                            	//空白单元格
+                                cellValue = "";
                                 break;
                             case BOOLEAN:
                                 cellValue = cell.getBooleanCellValue();
                                 break;
                             case ERROR:
-                                cellValue = "这是错误";
+                            	//这是错误
+                                cellValue = "";
                                 break;
                             case FORMULA:
-                                cellValue = "这是公式";
+                            	//这是公式
+                                cellValue = "";
                                 break;
                             default:
-                                cellValue = "未知错误";
+                            	//未知错误
+                                cellValue = "";
                                 break;
                         }
                         System.out.print(cellValue + "\t");
-                        if(i  == 0){//记录表名
+                        if(i  == 0){
+                        	//记录表名
                             currentTableName=(String)cellValue;
                             columnInfo.setTableName(currentTableName);
 
-
-                        }else if(i == 1){//记录字段名
+                        }else if(i == 1){
+                        	//记录字段名
                             columnInfo.setColumnName(cellValue.toString());
 
-                        }else if(i==2){//类型
+                        }else if(i==2){
+                        	//类型
                             columnInfo.setColumnType(cellValue.toString());
-                        }else if(i==3){//是否允许为空
-                            columnInfo.setAllowNull(cellValue.toString().equals("Y")?true:false);
-                        }else if(i==4){//是否为主键
-                            columnInfo.setUniqueKey(cellValue.toString().equals("Y")?true:false);
-                        }else if(i==5){//注释
+                        }else if(i==3){
+                        	//是否允许为空
+                        	String cellStr=cellValue.toString();
+                            columnInfo.setAllowNull("Y".equals(cellStr)||"是".equals(cellStr)?true:false);
+                        }else if(i==4){
+                        	//是否为主键
+                        	String cellStr=cellValue.toString();
+                            columnInfo.setUniqueKey("Y".equals(cellStr)||"是".equals(cellStr)?true:false);
+                        }else if(i==5){
+                        	//注释
                             columnInfo.setComment(cellValue.toString());
+                        }else if(i==6){
+                        	//厂家源字段
+                        	columnInfo.setSourceField(cellValue.toString());
                         }
 
 
 
                     }
-                    if(tableName==null){//初次记录表名
+                    //初次记录表名
+                    if(tableName==null){
                         tableName= currentTableName;
                     }
                     //将字段加入集合
@@ -299,7 +456,7 @@ public class DomConversion {
                 if(null != tableName){
                 allTableInfo.put(tableName,(ArrayList<ColumnInfo>) comlumns);
                 }
-            }
+            //}
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -349,8 +506,8 @@ public class DomConversion {
                 while (columnIterator.hasNext()){
                     String columnName = columnIterator.next().getColumnName();
                     columnsElement.addElement("column").
-                            addAttribute("name",columnName).
-                            addAttribute("property",columnName);
+                            addAttribute("name",columnName.toUpperCase()).
+                            addAttribute("property",columnName.toUpperCase());
                 }
                 idOfferSet++;
 
@@ -408,8 +565,8 @@ public class DomConversion {
            // parseElement(document.getRootElement());
            // Iterator<Element> elementIterator = document.getRootElement().elementIterator();
            // while (elementIterator.hasNext()){
-            Element nemanagedelement_l = isExistsTableElement(document.getRootElement(), "NEMANAGEDELEMENT_L");
-            System.out.println("nemanagedelement_l"+nemanagedelement_l);
+            Element nemanagedElement = isExistsTableElement(document.getRootElement(), "NEMANAGEDELEMENT_L");
+            System.out.println("nemanagedelement_l"+nemanagedElement);
 
            
         } catch (DocumentException e) {

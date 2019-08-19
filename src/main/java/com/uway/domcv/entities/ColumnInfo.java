@@ -22,4 +22,8 @@ public class ColumnInfo {
      * 是否为主键
      */
     public boolean uniqueKey;
+    /**
+     * 厂家源字段，或与厂家文件的对接接口
+     */
+    public String sourceField;
 }

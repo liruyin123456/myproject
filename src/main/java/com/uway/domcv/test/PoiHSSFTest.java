@@ -1,14 +1,23 @@
 package com.uway.domcv.test;
 
-import org.apache.poi.hssf.usermodel.*;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-import org.apache.poi.ss.usermodel.*;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+
+import org.apache.poi.hssf.usermodel.HSSFCell;
+import org.apache.poi.hssf.usermodel.HSSFCellStyle;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 
 /**
  * @author liruyin
@@ -17,7 +26,13 @@ import java.util.Iterator;
 public class PoiHSSFTest {
     public static void main(String[] args) {
 //        readTExcdl("");
-        readExcel("E:/测试excel文档.xlsx");
+        //readExcel("E:/测试excel文档.xlsx");
+    	String a = "L_PM_ERIC_EUTRANCELLFDD_2";
+    	String b = null;
+    	if(a.length()>24){
+    		 a = a.substring(0,24);
+    	}
+    	System.out.println(a +":"+a.length());
 
     }
     public static  void  readTExcdl(String path){
